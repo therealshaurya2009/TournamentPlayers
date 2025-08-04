@@ -52,5 +52,11 @@ COPY . /app/
 # Expose port your Flask app listens on (change if needed)
 EXPOSE 10000
 
+RUN which google-chrome || echo "google-chrome not found"
+RUN which google-chrome-stable || echo "google-chrome-stable not found"
+RUN ls -l /opt/google/chrome || echo "/opt/google/chrome not found"
+RUN google-chrome --version || echo "google-chrome version check failed"
+RUN google-chrome-stable --version || echo "google-chrome-stable version check failed"
+
 # Start the app with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
