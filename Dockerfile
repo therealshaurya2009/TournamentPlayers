@@ -1,70 +1,29 @@
-FROM python:3.11-slim
+# Use prebuilt Alpine image with headless Chromium + Node
+FROM zenika/alpine-chrome:with-node
 
-# Install dependencies and tools for Chrome
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    unzip \
-    curl \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libnss3 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxrandr2 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    libxss1 \
-    libxext6 \
-    libfontconfig1 && \
-    rm -rf /var/lib/apt/lists/*
-
-# Add Google Chrome signing key and repo
-RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-signing-keyring.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-
-# Install Chrome stable
-RUN apt-get update && apt-get install -y google-chrome-stable && rm -rf /var/lib/apt/lists/*
-
-# Symlink google-chrome to google-chrome-stable for compatibility
-RUN ln -s /usr/bin/google-chrome-stable /usr/bin/google-chrome
-
-# Diagnostic: list Chrome binaries and print Chrome version
-RUN ls -l /usr/bin/google-chrome* || echo "No google-chrome binaries found"
-RUN google-chrome --version || echo "google-chrome not found"
-
-# Install ChromeDriver matching installed Chrome version
-RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') && \
-    CHROMEDRIVER_VERSION=$(curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}) && \
-    wget -O /tmp/chromedriver_linux64.zip https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip && \
-    unzip /tmp/chromedriver_linux64.zip -d /usr/local/bin/ && \
-    rm /tmp/chromedriver_linux64.zip && \
-    chmod +x /usr/local/bin/chromedriver
-
-# Set environment variables
-ENV DISPLAY=:99
-ENV CHROME_BIN=/usr/bin/google-chrome
-
-# Set working directory
+# Set working directory inside container
 WORKDIR /app
 
-# Copy and install Python dependencies
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python3 and pip (Alpine package manager is apk)
+RUN apk add --no-cache python3 py3-pip
 
-# Copy app source
+# Copy Python dependencies list
+COPY requirements.txt /app/
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy all app source code into container
 COPY . /app/
 
-# Add a startup script to check Chrome version on container start
-RUN echo '#!/bin/sh\n/usr/bin/google-chrome --version\nexec "$@"' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
-
-# Expose Flask port
+# Expose Flask app port (adjust if needed)
 EXPOSE 10000
 
-# Use the startup script to print Chrome version before running Gunicorn
+# Add a startup script that prints Chromium version for debugging
+RUN echo '#!/bin/sh\nchromium-browser --version\nexec "$@"' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
+
+# Use startup script to print Chromium version before launching app
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
+# Run Gunicorn server binding to port 10000 and your Flask app
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
