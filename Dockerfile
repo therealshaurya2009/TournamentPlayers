@@ -1,12 +1,12 @@
-# Use a lightweight Python image
 FROM python:3.11-slim
 
-# Install dependencies for Chrome and ChromeDriver
-RUN apt-get update && apt-get install -y \
+# Install dependencies and tools for Chrome
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
-    gnupg2 \
     curl \
+    gnupg \
+    ca-certificates \
     fonts-liberation \
     libnss3 \
     libx11-xcb1 \
@@ -20,48 +20,43 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-0 \
     libxss1 \
     libxext6 \
-    --no-install-recommends && \
+    libfontconfig1 && \
     rm -rf /var/lib/apt/lists/*
 
-# Add Google Chrome repo and install Chrome stable
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && apt-get install -y google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
+# Add Google Chrome signing key and repo correctly
+RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-signing-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
 
-# Install ChromeDriver
-RUN CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
-    wget -N https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip -P /tmp && \
+# Install Chrome stable
+RUN apt-get update && apt-get install -y google-chrome-stable && rm -rf /var/lib/apt/lists/*
+
+# Get installed Chrome version and set ChromeDriver version accordingly
+RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') && \
+    CHROME_DRIVER_VERSION=$(curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}) && \
+    wget -O /tmp/chromedriver_linux64.zip https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip && \
     unzip /tmp/chromedriver_linux64.zip -d /usr/local/bin/ && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm /tmp/chromedriver_linux64.zip
+    rm /tmp/chromedriver_linux64.zip && \
+    chmod +x /usr/local/bin/chromedriver
 
-# Set display port (needed for Chrome)
+# Set environment variables
 ENV DISPLAY=:99
+ENV CHROME_BIN=/usr/bin/google-chrome-stable
 
-# Set workdir
+# Set working directory
 WORKDIR /app
 
-# Copy requirements and install
+# Copy and install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app source code
+# Copy app source
 COPY . /app/
 
-# Diagnostic: Locate Chrome binary (very important!)
-RUN echo "🔍 Checking Chrome installation..." && \
-    which google-chrome || echo "❌ google-chrome not found" && \
-    which google-chrome-stable || echo "❌ google-chrome-stable not found" && \
-    echo "🔍 Looking for google-chrome files:" && \
-    find / -type f -name "google-chrome*" 2>/dev/null || echo "❌ No google-chrome files found" && \
-    echo "🔍 Version check:" && \
-    google-chrome --version || echo "❌ google-chrome version check failed" && \
-    google-chrome-stable --version || echo "❌ google-chrome-stable version check failed"
+# Diagnostic commands to verify Chrome install (optional)
+RUN which google-chrome-stable && google-chrome-stable --version && chromedriver --version
 
-# Expose the port your Flask app listens on
+# Expose Flask port
 EXPOSE 10000
 
-# Start the app with Gunicorn
+# Start Gunicorn server
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
-
