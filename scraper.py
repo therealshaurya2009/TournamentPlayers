@@ -61,7 +61,7 @@ def setup_driver():
     desired_capabilities=DesiredCapabilities.CHROME,
     service=service,
     options=options)
-driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
 
