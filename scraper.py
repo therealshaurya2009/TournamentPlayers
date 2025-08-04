@@ -55,15 +55,12 @@ def setup_driver():
     options.binary_location = "/usr/bin/google-chrome"
     options.add_experimental_option("useAutomationExtension", False)
 
-    service = Service(ChromeDriverManager().install())
     driver = webdriver.Remote(
-    command_executor='http://localhost:4444/wd/hub',
-    desired_capabilities=DesiredCapabilities.CHROME,
-    service=service,
-    options=options)
+        command_executor='http://localhost:4444/wd/hub',
+        options=options
+    )
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
-
 
 
 def age_groups_level(tournament_link):
