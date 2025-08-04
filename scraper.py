@@ -30,43 +30,21 @@ import requests
 import subprocess
 import time
 from webdriver_manager.chrome import ChromeDriverManager
-import subprocess
-from selenium import webdriver
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-def print_binaries():
-    try:
-        output = subprocess.check_output("ls -l /usr/bin | grep -i 'chrome\\|chromium'", shell=True).decode()
-        print("Binaries in /usr/bin with chrome or chromium in the name:\n" + output)
-    except Exception as e:
-        print(f"Error listing binaries: {e}")
-
-print_binaries()
-
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
 
 def setup_driver():
-    options = Options()
-    options.binary_location = "/usr/bin/google-chrome"
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    )
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-
-    # 👇 specify exact path to chromedriver
-    service = Service(executable_path="/usr/local/bin/chromedriver")
-
-    driver = webdriver.Chrome(service=service, options=options)
+    driver_options = Options()
+    driver_options.add_argument("--headless=new")
+    driver_options.add_argument("--disable-gpu")
+    driver_options.add_argument("--window-size=1920,1080")
+    driver_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+    driver_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    driver_options.add_experimental_option('useAutomationExtension', False)
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=driver_options)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
+
 
 def age_groups_level(tournament_link):
     driver = setup_driver()
