@@ -40,7 +40,7 @@ def setup_driver():
     driver_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
     driver_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     driver_options.add_experimental_option('useAutomationExtension', False)
-    driver_options.binary_location = "/usr/bin/google-chrome-stable"
+    driver_options.binary_location = "/usr/bin/google-chrome"
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=driver_options)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
