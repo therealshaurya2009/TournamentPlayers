@@ -1,29 +1,24 @@
-# Use prebuilt Alpine image with headless Chromium + Node
-FROM zenika/alpine-chrome:with-node
+# Use Selenium standalone Chrome image with Chrome & ChromeDriver preinstalled
+FROM selenium/standalone-chrome:latest
+
+# Switch to root to install python and dependencies
+USER root
+
+# Update and install python3 and pip
+RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 # Set working directory inside container
 WORKDIR /app
 
-# Install Python3 and pip (Alpine package manager is apk)
-RUN apk add --no-cache python3 py3-pip
-
-# Copy Python dependencies list
+# Copy Python dependencies file and install
 COPY requirements.txt /app/
-
-# Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy all app source code into container
+# Copy the entire app source code
 COPY . /app/
 
-# Expose Flask app port (adjust if needed)
+# Expose the port your Flask app listens on
 EXPOSE 10000
 
-# Add a startup script that prints Chromium version for debugging
-RUN echo '#!/bin/sh\nchromium-browser --version\nexec "$@"' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
-
-# Use startup script to print Chromium version before launching app
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
-
-# Run Gunicorn server binding to port 10000 and your Flask app
+# Run your Flask app with Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
