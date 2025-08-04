@@ -33,6 +33,10 @@ RUN apt-get update && apt-get install -y google-chrome-stable && rm -rf /var/lib
 # Symlink google-chrome to google-chrome-stable for compatibility
 RUN ln -s /usr/bin/google-chrome-stable /usr/bin/google-chrome
 
+# Diagnostic: list Chrome binaries and print Chrome version
+RUN ls -l /usr/bin/google-chrome* || echo "No google-chrome binaries found"
+RUN google-chrome --version || echo "google-chrome not found"
+
 # Install ChromeDriver matching installed Chrome version
 RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') && \
     CHROMEDRIVER_VERSION=$(curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}) && \
@@ -55,8 +59,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app source
 COPY . /app/
 
+# Add a startup script to check Chrome version on container start
+RUN echo '#!/bin/sh\n/usr/bin/google-chrome --version\nexec "$@"' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
+
 # Expose Flask port
 EXPOSE 10000
 
-# Start Gunicorn server
+# Use the startup script to print Chrome version before running Gunicorn
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
