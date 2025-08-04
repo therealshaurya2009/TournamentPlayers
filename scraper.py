@@ -29,7 +29,6 @@ import re
 import requests
 import subprocess
 import time
-from webdriver_manager.chrome import ChromeDriverManager
 
 
 def setup_driver():
