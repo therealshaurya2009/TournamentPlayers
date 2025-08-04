@@ -30,7 +30,16 @@ import requests
 import subprocess
 import time
 from webdriver_manager.chrome import ChromeDriverManager
+import subprocess
 
+def print_binaries():
+    try:
+        output = subprocess.check_output("ls -l /usr/bin | grep -i 'chrome\\|chromium'", shell=True).decode()
+        print("Binaries in /usr/bin with chrome or chromium in the name:\n" + output)
+    except Exception as e:
+        print(f"Error listing binaries: {e}")
+
+print_binaries()
 
 def setup_driver():
     options = Options()
