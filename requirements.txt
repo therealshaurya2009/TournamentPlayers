@@ -1,6 +1,17 @@
-gunicorn
+# Web scraping and browser automation
+selenium>=4.15
+
+# Flask web framework (if you're serving a web app)
 flask
-selenium
-plotly
+
+# PDF generation
 reportlab
-webdriver-manager
+
+# HTTP requests
+requests
+
+# Production server for Flask (Render uses this)
+gunicorn
+
+# Optional: concurrency
+concurrent-log-handler
