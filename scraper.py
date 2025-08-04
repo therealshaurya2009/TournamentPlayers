@@ -31,6 +31,8 @@ import subprocess
 import time
 from webdriver_manager.chrome import ChromeDriverManager
 import subprocess
+from selenium import webdriver
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 def print_binaries():
     try:
@@ -54,8 +56,12 @@ def setup_driver():
     options.add_experimental_option("useAutomationExtension", False)
 
     service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    driver = webdriver.Remote(
+    command_executor='http://localhost:4444/wd/hub',
+    desired_capabilities=DesiredCapabilities.CHROME,
+    service=service,
+    options=options)
+driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
 
