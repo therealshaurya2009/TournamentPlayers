@@ -49,14 +49,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app source code
 COPY . /app/
 
-# Expose port your Flask app listens on (change if needed)
+# Diagnostic: Locate Chrome binary (very important!)
+RUN echo "🔍 Checking Chrome installation..." && \
+    which google-chrome || echo "❌ google-chrome not found" && \
+    which google-chrome-stable || echo "❌ google-chrome-stable not found" && \
+    echo "🔍 Looking for google-chrome files:" && \
+    find / -type f -name "google-chrome*" 2>/dev/null || echo "❌ No google-chrome files found" && \
+    echo "🔍 Version check:" && \
+    google-chrome --version || echo "❌ google-chrome version check failed" && \
+    google-chrome-stable --version || echo "❌ google-chrome-stable version check failed"
+
+# Expose the port your Flask app listens on
 EXPOSE 10000
 
-RUN which google-chrome || echo "google-chrome not found"
-RUN which google-chrome-stable || echo "google-chrome-stable not found"
-RUN ls -l /opt/google/chrome || echo "/opt/google/chrome not found"
-RUN google-chrome --version || echo "google-chrome version check failed"
-RUN google-chrome-stable --version || echo "google-chrome-stable version check failed"
-
-# Start the app with gunicorn
+# Start the app with Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
+
