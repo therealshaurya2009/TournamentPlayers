@@ -2,3 +2,4 @@ flask
 gunicorn
 playwright
 reportlab
+tk  # optional: remove if deploying without GUI
