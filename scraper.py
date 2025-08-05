@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-import plotly.graph_objects as go
 from reportlab.platypus import Paragraph, Spacer, HRFlowable
 from concurrent.futures import ThreadPoolExecutor
 import time
