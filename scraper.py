@@ -7,10 +7,13 @@ import subprocess
 import tempfile
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+import plotly.graph_objects as go
 from reportlab.platypus import Paragraph, Spacer, HRFlowable
 from concurrent.futures import ThreadPoolExecutor
+import tkinter as tk
+import time
 # CHANGE 1: Import async_playwright
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import requests
 from datetime import date, datetime
@@ -24,26 +27,25 @@ import asyncio # Import asyncio
 ## Playwright Setup and Teardown
 
 # CHANGE 2: Make setup_browser an async function
-async def setup_browser():
-    """Initialize Playwright browser context"""
-    playwright = await async_playwright().start()
-    browser = await playwright.chromium.launch(headless=True)
-    context = await browser.new_context()
-    return playwright, browser, context
+def setup_browser():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        return browser, page
 
 # CHANGE 3: Make setup_page an async function
-async def setup_page():
+def setup_page():
     """Create a new page with proper context"""
-    playwright, browser, context = await setup_browser()
-    page = await context.new_page()
+    playwright, browser, context = setup_browser()
+    page = context.new_page()
     return playwright, browser, context, page
 
 # No change needed for close_browser as it doesn't await anything
-async def close_browser(playwright, browser, context):
+def close_browser(playwright, browser, context):
     """Properly close browser and playwright"""
-    await context.close()
-    await browser.close()
-    await playwright.stop()
+    context.close()
+    browser.close()
+    playwright.stop()
 
 def setup_persistent_browser(user_data_dir="userdata"):
     with sync_playwright() as p:
@@ -65,13 +67,13 @@ def setup_persistent_browser(user_data_dir="userdata"):
 ## Web Scraping Functions
 
 # CHANGE 4: Make age_groups an async function
-async def age_groups(link):
-    playwright, browser, context, page = await setup_page()
+def age_groups(link):
+    playwright, browser, context, page = setup_page()
     try:
-        await page.goto(link.lower())
-        await page.wait_for_selector("tbody.MuiTableBody-root.css-y6j1my", timeout=10000)
+        page.goto(link.lower())
+        page.wait_for_selector("tbody.MuiTableBody-root.css-y6j1my", timeout=10000)
 
-        content = await page.content()
+        content = page.content()
         soup = BeautifulSoup(content, 'lxml')
         tbody = soup.find("tbody", class_="MuiTableBody-root css-y6j1my")
         if tbody:
@@ -80,26 +82,26 @@ async def age_groups(link):
             groups = []
         return groups
     finally:
-        await close_browser(playwright, browser, context)
+        close_browser(playwright, browser, context)
 
 # CHANGE 5: Make scrape_usta an async function
-async def scrape_usta(player_link, age_group_param=None):
+def scrape_usta(player_link, age_group_param=None):
     player_id = player_link.strip("https://www.usta.com/en/home/play/player-search/profile.html#uaid=")
-    playwright, browser, context, page = await setup_page()
+    playwright, browser, context, page = setup_page()
 
     try:
-        await page.goto(player_link + "&tab=about")
-        await page.wait_for_selector(".readonly-text__text", timeout=10000)
+        page.goto(player_link + "&tab=about")
+        page.wait_for_selector(".readonly-text__text", timeout=10000)
 
         # Fetch player name
         try:
-            player_name_element = await page.wait_for_selector("/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[1]/div/div/div[2]/div/form/div[2]/div/div/div/div/div/div/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div/div/span/h3", timeout=10000)
-            player_name = await player_name_element.inner_text() if player_name_element else "Unknown Player"
+            player_name_element = page.wait_for_selector("/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[1]/div/div/div[2]/div/form/div[2]/div/div/div/div/div/div/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div/div/span/h3", timeout=10000)
+            player_name = player_name_element.inner_text() if player_name_element else "Unknown Player"
         except:
             player_name = "Unknown Player"
 
         # Get player location and district
-        content = await page.content()
+        content = page.content()
         soup = BeautifulSoup(content, 'lxml')
 
         try:
@@ -134,14 +136,14 @@ async def scrape_usta(player_link, age_group_param=None):
 
         # Get WTN (World Tennis Number)
         try:
-            wtn_element = await page.wait_for_selector("/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[2]/div/div[3]/div/div/div/div[2]/div/form/div[3]/div/div/div/div[1]/div/div[2]/div[1]/div/p", timeout=10000)
-            wtn = await wtn_element.inner_text()
+            wtn_element = page.wait_for_selector("/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[2]/div/div[3]/div/div/div/div[2]/div/form/div[3]/div/div/div/div[1]/div/div[2]/div[1]/div/p", timeout=10000)
+            wtn = wtn_element.inner_text()
         except:
             wtn = "40.00"  # Default WTN if not available
 
         # Get ranking and points
-        await page.goto(player_link + "&tab=rankings")
-        content = await page.content()
+        page.goto(player_link + "&tab=rankings")
+        content = page.content()
         soup = BeautifulSoup(content, 'lxml')
         ranking_info = soup.find_all("div", class_="v-grid-cell__content")
 
@@ -163,16 +165,16 @@ async def scrape_usta(player_link, age_group_param=None):
         return(player_name, location, district, wtn, points, rank)
 
     finally:
-        await close_browser(playwright, browser, context)
+        close_browser(playwright, browser, context)
 
 # CHANGE 6: Make scrape_recruiting an async function
-async def scrape_recruiting(name, location):
-    playwright, browser, context, page = await setup_page()
+def scrape_recruiting(name, location):
+    playwright, browser, context, page = setup_page()
 
     try:
-        await page.goto("https://www.tennisrecruiting.net/player.asp")
-        await page.fill("input[name='f_playername']", name)
-        await page.press("input[name='f_playername']", "Enter")
+        page.goto("https://www.tennisrecruiting.net/player.asp")
+        page.fill("input[name='f_playername']", name)
+        page.press("input[name='f_playername']", "Enter")
 
         grades = ["Graduate","Senior","Junior","Sophomore","Freshman","8th Grader","7th Grader","6th Grader"]
 
@@ -182,17 +184,17 @@ async def scrape_recruiting(name, location):
 
         try:
             # Wait until the rating image is loaded
-            rating = await page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img", timeout=10000)
+            rating = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img", timeout=10000)
 
             try:
-                utr = await page.wait_for_selector("//a[contains(@href, 'app.utrsports.net')]", timeout=10000)
-                utr_text = await utr.inner_text() if utr else "?"
+                utr = page.wait_for_selector("//a[contains(@href, 'app.utrsports.net')]", timeout=10000)
+                utr_text = utr.inner_text() if utr else "?"
             except:
                 utr_text = "?"
 
             try:
-                year = await page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]", timeout=10000)
-                year_text = await year.inner_text() if year else "?"
+                year = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]", timeout=10000)
+                year_text = year.inner_text() if year else "?"
                 if "Provisional" in year_text:
                     for grade in grades:
                         if grade in year_text:
@@ -208,7 +210,7 @@ async def scrape_recruiting(name, location):
                 year_text = "?"
 
         except:
-            content = await page.content()
+            content = page.content()
             soup = BeautifulSoup(content, 'lxml')
             table = soup.find("table", class_="list")
             if table:
@@ -231,23 +233,23 @@ async def scrape_recruiting(name, location):
 
                 for i, home in enumerate(homes):
                     if home == location and i < len(links):
-                        await page.goto("https://www.tennisrecruiting.net" + links[i])
+                        page.goto("https://www.tennisrecruiting.net" + links[i])
 
                         # Wait until the rating image is loaded in the second page
                         try:
-                            rating = await page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img", timeout=10000)
+                            rating = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img", timeout=10000)
                         except:
                             rating = None
 
                         try:
-                            utr = await page.wait_for_selector("//a[contains(@href, 'app.utrsports.net')]", timeout=10000)
-                            utr_text = await utr.inner_text() if utr else "?"
+                            utr = page.wait_for_selector("//a[contains(@href, 'app.utrsports.net')]", timeout=10000)
+                            utr_text = utr.inner_text() if utr else "?"
                         except:
                             utr_text = "?"
 
                         try:
-                            year = await page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]", timeout=10000)
-                            year_text = await year.inner_text() if year else "?"
+                            year = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]", timeout=10000)
+                            year_text = year.inner_text() if year else "?"
                             if "Provisional" in year_text:
                                 for grade in grades:
                                     if grade in year_text:
@@ -263,18 +265,18 @@ async def scrape_recruiting(name, location):
                             year_text = "?"
                         break
 
-        return([await rating.get_attribute("src") if rating else "?", utr_text, year_text])
+        return([rating.get_attribute("src") if rating else "?", utr_text, year_text])
 
     finally:
-        await close_browser(playwright, browser, context)
+        close_browser(playwright, browser, context)
 
 # CHANGE 7: Make scrape_draw_size an async function
-async def scrape_draw_size(link, age_group):
-    playwright, browser, context, page = await setup_page()
+def scrape_draw_size(link, age_group):
+    playwright, browser, context, page = setup_page()
 
     try:
-        await page.goto(link)
-        content = await page.content()
+        page.goto(link)
+        content = page.content()
         soup = BeautifulSoup(content, 'lxml')
 
         age_groups = soup.find_all("h6", class_="_H6_1iwqn_128")
@@ -289,10 +291,10 @@ async def scrape_draw_size(link, age_group):
             if 0 <= index < len(links):
                 link_href = links[index].get("href")
                 link_final = "https://playtennis.usta.com" + (link_href if link_href else "")
-                await page.goto(link_final)
-                await asyncio.sleep(5) # Use asyncio.sleep for async functions
+                page.goto(link_final)
+                asyncio.sleep(5) # Use asyncio.sleep for async functions
 
-                content = await page.content()
+                content = page.content()
                 soup = BeautifulSoup(content, 'lxml')
                 draw_size = soup.find_all("span", class_="_bodyXSmall_1iwqn_137")
 
@@ -302,17 +304,17 @@ async def scrape_draw_size(link, age_group):
         return "N/A"
 
     finally:
-        await close_browser(playwright, browser, context)
+        close_browser(playwright, browser, context)
 
 # CHANGE 8: Make scrape_player an async function
-async def scrape_player(player_link, age_group_param=None):
+def scrape_player(player_link, age_group_param=None):
     """
     Scrape individual player data.
     """
     try:
-        info = await scrape_usta(player_link, age_group_param)
+        info = scrape_usta(player_link, age_group_param)
         try:
-            recruiting_rating = await scrape_recruiting(info[0], info[1])
+            recruiting_rating = scrape_recruiting(info[0], info[1])
         except:
             recruiting_rating = ["?","?","?"]
 
@@ -344,30 +346,30 @@ async def scrape_player(player_link, age_group_param=None):
 ## Tournament Data Scraping and PDF Generation
 
 # CHANGE 9: Make scrape_tournament_data an async function
-async def scrape_tournament_data(tournament_url, age_group, sort):
+def scrape_tournament_data(tournament_url, age_group, sort):
     start = datetime.now()
-    playwright, browser, context, page = await setup_page()
+    playwright, browser, context, page = setup_page()
 
     try:
         tournament_url = tournament_url.lower()
-        await page.goto(tournament_url)
+        page.goto(tournament_url)
 
         try:
-            name_element = await page.wait_for_selector("//*[@id='tournaments']/div/div/div/div[1]/div/div[1]/h1", timeout=10000)
-            name = await name_element.inner_text() if name_element else "Unknown Tournament"
+            name_element = page.wait_for_selector("//*[@id='tournaments']/div/div/div/div[1]/div/div[1]/h1", timeout=10000)
+            name = name_element.inner_text() if name_element else "Unknown Tournament"
         except:
             name = "Unknown Tournament"
 
-        draw_size_str = await scrape_draw_size(tournament_url.replace("overview", "events"), age_group)
+        draw_size_str = scrape_draw_size(tournament_url.replace("overview", "events"), age_group)
         draw_size = 10000 if draw_size_str == "N/A" else int(draw_size_str)
 
-        await page.goto(tournament_url.replace("overview", "players"))
+        page.goto(tournament_url.replace("overview", "players"))
 
         # Initialize player_links as an empty list
         player_links = []
 
         # Find all players in the tournament
-        content = await page.content()
+        content = page.content()
         soup = BeautifulSoup(content, 'lxml')
         players = soup.find_all("td", class_="_alignLeft_1nqit_268")
         time_now = datetime.now()
@@ -397,7 +399,7 @@ async def scrape_tournament_data(tournament_url, age_group, sort):
         # Use asyncio.gather for parallel asynchronous scraping
         # You would typically use asyncio.gather for async functions, not ThreadPoolExecutor directly.
         # Since scrape_player is now async, we'll use asyncio.gather.
-        player_data = await asyncio.gather(*(scrape_player(link, age_group) for link in player_links))
+        player_data = asyncio.gather(*(scrape_player(link, age_group) for link in player_links))
 
 
         # Filter out None results (in case of scraping errors)
@@ -603,22 +605,22 @@ async def scrape_tournament_data(tournament_url, age_group, sort):
             print("Could not open PDF automatically:", e)
 
     finally:
-        await close_browser(playwright, browser, context)
+        close_browser(playwright, browser, context)
 
 # ---
 ## Main Execution Block
 
 # CHANGE 10: Run the main function using asyncio.run
-async def main():
+def main():
     tournament_link = input("Enter the tournament link: ")
-    options = await age_groups(tournament_link) # Await the async function call
+    options = age_groups(tournament_link) # Await the async function call
     for i in options:
         print(str(options.index(i) + 1) + ". " + i)
     age_group = options[int(input("Enter the number for your selected age group: ")) - 1]
     for i in ["1. Points", "2. WTN"]:
         print(i)
     sort = int(input("Choose a sort: "))
-    await scrape_tournament_data(tournament_link.lower(), age_group, sort) # Await the async function call
+    scrape_tournament_data(tournament_link.lower(), age_group, sort) # Await the async function call
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
