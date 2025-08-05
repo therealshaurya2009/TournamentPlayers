@@ -10,7 +10,6 @@ from reportlab.lib import colors
 import plotly.graph_objects as go
 from reportlab.platypus import Paragraph, Spacer, HRFlowable
 from concurrent.futures import ThreadPoolExecutor
-import tkinter as tk
 import time
 # CHANGE 1: Import async_playwright
 from playwright.sync_api import sync_playwright
