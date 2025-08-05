@@ -7,11 +7,8 @@ import subprocess
 import tempfile
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-import plotly.graph_objects as go
 from reportlab.platypus import Paragraph, Spacer, HRFlowable
 from concurrent.futures import ThreadPoolExecutor
-import tkinter as tk
-import time
 # CHANGE 1: Import async_playwright
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
