@@ -3,3 +3,4 @@ selenium
 plotly
 reportlab
 webdriver-manager
+gunicorn
