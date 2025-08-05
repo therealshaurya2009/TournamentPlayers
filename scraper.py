@@ -1,624 +1,529 @@
-from tkinter import filedialog, ttk
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+#Selenium Imports
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+#ReportLab Imports
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import HRFlowable
+from reportlab.platypus import Paragraph
+from reportlab.platypus import SimpleDocTemplate
+from reportlab.platypus import Spacer
+from reportlab.platypus import Table
+from reportlab.platypus import TableStyle
+
+#Other Imports
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 import os
 import platform
-import subprocess
-import tempfile
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-from reportlab.platypus import Paragraph, Spacer, HRFlowable
-from concurrent.futures import ThreadPoolExecutor
-import time
-# CHANGE 1: Import async_playwright
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
-import requests
-from datetime import date, datetime
-import json
-from collections import defaultdict
-from playwright.sync_api import sync_playwright
 import re
-import asyncio # Import asyncio
+import requests
+import subprocess
+import time
+from webdriver_manager.chrome import ChromeDriverManager
 
-# ---
-## Playwright Setup and Teardown
 
-# CHANGE 2: Make setup_browser an async function
-def setup_browser():
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        return browser, page
+def setup_driver():
+    driver_options = Options()
+    driver_options.add_argument("--headless=new")
+    driver_options.add_argument("--disable-gpu")
+    driver_options.add_argument("--window-size=1920,1080")
+    driver_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+    driver_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    driver_options.add_experimental_option('useAutomationExtension', False)
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=driver_options)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    return driver
 
-# CHANGE 3: Make setup_page an async function
-def setup_page():
-    """Create a new page with proper context"""
-    playwright, browser, context = setup_browser()
-    page = context.new_page()
-    return playwright, browser, context, page
 
-# No change needed for close_browser as it doesn't await anything
-def close_browser(playwright, browser, context):
-    """Properly close browser and playwright"""
-    context.close()
-    browser.close()
-    playwright.stop()
+def age_groups_level(tournament_link):
+    driver = setup_driver()
+    driver.get(tournament_link.lower())
 
-def setup_persistent_browser(user_data_dir="userdata"):
-    with sync_playwright() as p:
-        # Launch persistent context (acts like a real browser profile)
-        browser = p.chromium.launch_persistent_context(user_data_dir, headless=True)
-        page = browser.new_page()
-        page.goto("https://playtennis.usta.com")
+    try:
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "_H6_1iwqn_128")))
+        age_groups = driver.find_elements(By.CLASS_NAME, "_H6_1iwqn_128")
+        level_xpath = "/html/body/div[4]/div/div/div[2]/div[3]/div[1]/div[2]/div[2]/div/div/div[1]/div/div/div[1]/h6"
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, level_xpath)))
+        level = driver.find_element(By.XPATH, level_xpath)
+        continue_age = False
+        if level.text in ["Level 7", "Level 6"]:
+            continue_age = True
+        age_groups_final = []
+        for group in age_groups[1:]:
+            age_groups_final.append(group.text)
+        return [level.text, continue_age, age_groups_final]
+    except Exception as e:
+        return []
+
+
+def parse_wtn(wtn_str):
+    try:
+        return float(wtn_str)
+    except ValueError:
+        return 40.0
+
+
+def sort_key(k):
+    try:
+        return float(k)
+    except ValueError:
+        return float('inf')
+
+
+def scrape_recruiting(name, location, driver):
+    driver.get("https://www.tennisrecruiting.net/player.asp")
+
+    player_grades = ["Graduate","Senior","Junior","Sophomore","Freshman","8th Grader","7th Grader","6th Grader"]
+    player_rating_xpath = "//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img"
+    player_utr_xpath = "//a[contains(@href, 'app.utrsports.net')]"
+    player_year_xpath = "//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]"
+            
+    player_name = driver.find_element(By.NAME, "f_playername")
+    player_name.send_keys(name)
+    player_name.send_keys(Keys.RETURN)
+    
+    try:
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_rating_xpath)))
+        player_rating = driver.find_element(By.XPATH, player_rating_xpath)
+
+        try:
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_utr_xpath)))
+            
+            player_utr = driver.find_element(By.XPATH, player_utr_xpath)
+        except:
+            player_utr = "?"
+
+        try:
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_year_xpath)))
+            player_year = driver.find_element(By.XPATH, player_year_xpath)
+            player_year = player_year.text
+            for grade in player_grades:
+                if grade in player_year:
+                    player_year = grade
+                    if "Provisional" in player_year:
+                        player_year = player_year + "?"
+                    break
+        except:
+            player_year = "?"
+
+    except:
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "_players_1nqit_161")))
+        players = driver.find_element(By.CLASS_NAME, "_players_1nqit_161").find_all("tr")
+        players_links = []
+        players_homes = []
+        for i in players[1:]:
+            players_links.append(i.find_all("td")[0].find("b").find("a").get("href"))
+            players_homes.append(i.find_all("td")[1].text + ", " + i.find_all("td")[2].text)
+        for i in player_homes:
+            if i == location:
+                driver.get("https://www.tennisrecruiting.net" + links[homes.index(i)])
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_rating_xpath)))
+                player_rating = driver.find_element(By.XPATH, player_rating_xpath)
+                
+                try:
+                    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_utr_xpath)))
+                    player_utr = driver.find_element(By.XPATH, player_utr_xpath)
+                    
+                except:
+                    player_utr = "?"
+
+                try:
+                    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_year_xpath)))
+                    player_year = driver.find_element(By.XPATH, player_year_xpath)
+                    player_year = player_year.text
+                    for grade in player_grades:
+                        if grade in player_year:
+                            player_year = grade
+                            if "Provisional" in player_year:
+                                player_year = player_year + "?"
+                            break
+                except:
+                    player_year = "?"
+    
+    return([player_rating.get_attribute("src"),player_utr.text,player_year])
+
+
+def scrape_usta(player_link):
+    driver = setup_driver()
+    driver.get(player_link + "&tab=about")
+
+    try:
+        player_name_xpath = "/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[1]/div/div/div[2]/div/form/div[2]/div/div/div/div/div/div/div[2]/div/div/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div/div/span/h3"
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_name_xpath)))
         
-        # Wait for any manual login or session setup, if needed
-        input("Press Enter after logging in...")  # Optional
-        # Do your scraping
-        print(page.title())
+        player_name = driver.find_element(By.XPATH, player_name_xpath)
+        player_name = player_name.text.strip("\n")
+    except:
+         player_name = "*Unknown Player*"
+
+    try:
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "readonly-text__content")))
         
-        # Close the browser when done
-        browser.close()
-
-
-# ---
-## Web Scraping Functions
-
-# CHANGE 4: Make age_groups an async function
-def age_groups(link):
-    playwright, browser, context, page = setup_page()
-    try:
-        page.goto(link.lower())
-        page.wait_for_selector("tbody.MuiTableBody-root.css-y6j1my", timeout=10000)
-
-        content = page.content()
-        soup = BeautifulSoup(content, 'lxml')
-        tbody = soup.find("tbody", class_="MuiTableBody-root css-y6j1my")
-        if tbody:
-            groups = [h6.text for h6 in tbody.find_all("h6")]
-        else:
-            groups = []
-        return groups
-    finally:
-        close_browser(playwright, browser, context)
-
-# CHANGE 5: Make scrape_usta an async function
-def scrape_usta(player_link, age_group_param=None):
-    player_id = player_link.strip("https://www.usta.com/en/home/play/player-search/profile.html#uaid=")
-    playwright, browser, context, page = setup_page()
+        player_location = driver.find_elements(By.CLASS_NAME, "readonly-text__content")[1]
+        player_location = player_location.text.split('|')[1].split('Section:')[0]
+        player_location = player_location.strip("\n")
+    except:
+        player_location = "*Unknown*"
 
     try:
-        page.goto(player_link + "&tab=about")
-        page.wait_for_selector(".readonly-text__text", timeout=10000)
-
-        # Fetch player name
-        try:
-            player_name_element = page.wait_for_selector("/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[1]/div/div/div[2]/div/form/div[2]/div/div/div/div/div/div/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div/div/span/h3", timeout=10000)
-            player_name = player_name_element.inner_text() if player_name_element else "Unknown Player"
-        except:
-            player_name = "Unknown Player"
-
-        # Get player location and district
-        content = page.content()
-        soup = BeautifulSoup(content, 'lxml')
-
-        try:
-            content_divs = soup.find_all("div", class_="readonly-text__content")
-            if len(content_divs) > 1 and content_divs[1] and hasattr(content_divs[1], 'text'):
-                text_parts = content_divs[1].text.split('|')
-                if len(text_parts) > 1:
-                    location = text_parts[1].split('Section:')[0]
-                else:
-                    location = "Unknown"
-            else:
-                location = "Unknown"
-        except (AttributeError, IndexError):
-            location = "Unknown"
-
-        try:
-            content_divs = soup.find_all("div", class_="readonly-text__content")
-            if len(content_divs) > 1 and content_divs[1] and hasattr(content_divs[1], 'text'):
-                text_parts = content_divs[1].text.split("|")
-                if len(text_parts) > 2:
-                    district_parts = text_parts[2].split(": ")
-                    if len(district_parts) > 1:
-                        district = district_parts[1]
-                    else:
-                        district = "Unknown"
-                else:
-                    district = "Unknown"
-            else:
-                district = "Unknown"
-        except (AttributeError, IndexError):
-            district = "Unknown"
-
-        # Get WTN (World Tennis Number)
-        try:
-            wtn_element = page.wait_for_selector("/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[2]/div/div[3]/div/div/div/div[2]/div/form/div[3]/div/div/div/div[1]/div/div[2]/div[1]/div/p", timeout=10000)
-            wtn = wtn_element.inner_text()
-        except:
-            wtn = "40.00"  # Default WTN if not available
-
-        # Get ranking and points
-        page.goto(player_link + "&tab=rankings")
-        content = page.content()
-        soup = BeautifulSoup(content, 'lxml')
-        ranking_info = soup.find_all("div", class_="v-grid-cell__content")
-
-        points = "0"  # Default points if not available
-        rank = "20000"  # Default rank if not available
-
-        try:
-            if age_group_param:
-                for j in range(0, len(ranking_info), 5):
-                    if "National Standings List (combined)" in ranking_info[j].text:
-                        if age_group_param.split()[1] in ranking_info[j].text:
-                            points = ranking_info[j + 1].text.strip("\n") if j + 1 < len(ranking_info) else "0"
-                            rank = ranking_info[j + 2].text.strip("\n") if j + 2 < len(ranking_info) else "20,000"
-                            break
-        except:
-            points = "0"
-            rank = "20,000"
-
-        return(player_name, location, district, wtn, points, rank)
-
-    finally:
-        close_browser(playwright, browser, context)
-
-# CHANGE 6: Make scrape_recruiting an async function
-def scrape_recruiting(name, location):
-    playwright, browser, context, page = setup_page()
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "readonly-text__content")))
+        
+        player_district = driver.find_elements(By.CLASS_NAME, "readonly-text__content")[1]
+        player_district = player_district.text.split("|")[2].split(": ")[1]
+    except:
+        player_district = "Unknown"
 
     try:
-        page.goto("https://www.tennisrecruiting.net/player.asp")
-        page.fill("input[name='f_playername']", name)
-        page.press("input[name='f_playername']", "Enter")
+        player_wtn_xpath = "/html/body/div[5]/div/div[2]/div/div/div[3]/div/div/div[2]/div/div/div[2]/div/div[3]/div/div/div/div[2]/div/form/div[3]/div/div/div/div[1]/div/div[2]/div[1]/div/p"
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, player_wtn_xpath)))
+        
+        player_wtn = driver.find_element(By.XPATH, player_wtn_xpath).text
+    except:
+        player_wtn = "*40.00*"
 
-        grades = ["Graduate","Senior","Junior","Sophomore","Freshman","8th Grader","7th Grader","6th Grader"]
-
-        rating = None
-        utr_text = "?"
-        year_text = "?"
-
-        try:
-            # Wait until the rating image is loaded
-            rating = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img", timeout=10000)
-
-            try:
-                utr = page.wait_for_selector("//a[contains(@href, 'app.utrsports.net')]", timeout=10000)
-                utr_text = utr.inner_text() if utr else "?"
-            except:
-                utr_text = "?"
-
-            try:
-                year = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]", timeout=10000)
-                year_text = year.inner_text() if year else "?"
-                if "Provisional" in year_text:
-                    for grade in grades:
-                        if grade in year_text:
-                            year_text = grade
-                            break
-                    year_text = year_text + "?"
-                else:
-                    for grade in grades:
-                        if grade in year_text:
-                            year_text = grade
-                            break
-            except:
-                year_text = "?"
-
-        except:
-            content = page.content()
-            soup = BeautifulSoup(content, 'lxml')
-            table = soup.find("table", class_="list")
-            if table:
-                players = table.find_all("tr")
-                links = []
-                homes = []
-
-                for i in players[1:]:
-                    if hasattr(i, 'find_all'):
-                        td_elements = i.find_all("td")
-                        if len(td_elements) >= 3:
-                            link_element = td_elements[0].find("b") if hasattr(td_elements[0], 'find') else None
-                            if link_element and hasattr(link_element, 'find'):
-                                a_element = link_element.find("a")
-                                if a_element and hasattr(a_element, 'get'):
-                                    href = a_element.get("href")
-                                    if href:
-                                        links.append(href)
-                                        homes.append(td_elements[1].text + ", " + td_elements[2].text)
-
-                for i, home in enumerate(homes):
-                    if home == location and i < len(links):
-                        page.goto("https://www.tennisrecruiting.net" + links[i])
-
-                        # Wait until the rating image is loaded in the second page
-                        try:
-                            rating = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[4]/td/img", timeout=10000)
-                        except:
-                            rating = None
-
-                        try:
-                            utr = page.wait_for_selector("//a[contains(@href, 'app.utrsports.net')]", timeout=10000)
-                            utr_text = utr.inner_text() if utr else "?"
-                        except:
-                            utr_text = "?"
-
-                        try:
-                            year = page.wait_for_selector("//*[@id='CenterColumn']/table[1]/tbody/tr/td[2]/table/tbody/tr[3]/td[2]/div[3]", timeout=10000)
-                            year_text = year.inner_text() if year else "?"
-                            if "Provisional" in year_text:
-                                for grade in grades:
-                                    if grade in year_text:
-                                        year_text = grade
-                                        break
-                                year_text = year_text + "?"
-                            else:
-                                for grade in grades:
-                                    if grade in year_text:
-                                        year_text = grade
-                                        break
-                        except:
-                            year_text = "?"
-                        break
-
-        return([rating.get_attribute("src") if rating else "?", utr_text, year_text])
-
-    finally:
-        close_browser(playwright, browser, context)
-
-# CHANGE 7: Make scrape_draw_size an async function
-def scrape_draw_size(link, age_group):
-    playwright, browser, context, page = setup_page()
+    driver.get(player_link + "&tab=rankings")
+    
+    player_points = "0"  
+    player_rank = "20000"
 
     try:
-        page.goto(link)
-        content = page.content()
-        soup = BeautifulSoup(content, 'lxml')
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "v-grid-cell__content")))
+        
+        player_ranking_info = driver.find_elements(By.CLASS_NAME, "v-grid-cell__content")    
+        for player in range(0, len(player_ranking_info), 5):
+            if "National Standings List (combined)" in player_ranking_info[player].text:
+                if age_group.split()[1] in player_ranking_info[player].text:
+                    player_points = player_ranking_info[player + 1].text.strip("\n") if player + 1 < len(player_ranking_info) else "0"
+                    player_rank = player_ranking_info[player + 2].text.strip("\n") if player + 2 < len(player_ranking_info) else "20,000"
+                    break
+    except:
+        player_points = "*0*"
+        player_rank = "*20,000*"
 
-        age_groups = soup.find_all("h6", class_="_H6_1iwqn_128")
-        links = soup.find_all("a", class_="_link_19t7t_285")
-        groups_final = []
-
-        for i in age_groups:
-            groups_final.append(i.text)
-
-        if groups_final and age_group in groups_final and links:
-            index = groups_final.index(age_group) - 1
-            if 0 <= index < len(links):
-                link_href = links[index].get("href")
-                link_final = "https://playtennis.usta.com" + (link_href if link_href else "")
-                page.goto(link_final)
-                asyncio.sleep(5) # Use asyncio.sleep for async functions
-
-                content = page.content()
-                soup = BeautifulSoup(content, 'lxml')
-                draw_size = soup.find_all("span", class_="_bodyXSmall_1iwqn_137")
-
-                if len(draw_size) > 1:
-                    return(draw_size[1].text)
-
-        return "N/A"
-
-    finally:
-        close_browser(playwright, browser, context)
-
-# CHANGE 8: Make scrape_player an async function
-def scrape_player(player_link, age_group_param=None):
-    """
-    Scrape individual player data.
-    """
     try:
-        info = scrape_usta(player_link, age_group_param)
-        try:
-            recruiting_rating = scrape_recruiting(info[0], info[1])
-        except:
-            recruiting_rating = ["?","?","?"]
+        recruiting_rating = scrape_recruiting(player_name, player_location, driver)
+    except:
+        recruiting_rating = ["https://www.tennisrecruiting.net/img/record.gif","?","?"]
 
-        if "0star" in recruiting_rating[0]: recruiting_rating[0] = "0 Star"
-        elif "1star" in recruiting_rating[0]: recruiting_rating[0] = "1 Star"
-        elif "2star" in recruiting_rating[0]: recruiting_rating[0] = "2 Star"
-        elif "3star" in recruiting_rating[0]: recruiting_rating[0] = "3 Star"
-        elif "4star" in recruiting_rating[0]: recruiting_rating[0] = "4 Star"
-        elif "5star" in recruiting_rating[0]: recruiting_rating[0] = "5 Star"
-        elif "6star" in recruiting_rating[0]: recruiting_rating[0] = "Blue Chip"
-        else: recruiting_rating[0] = "????????"
+    if "0star" in recruiting_rating[0]:
+        recruiting_rating[0] = "0 Star"
+    elif "1star" in recruiting_rating[0]:
+        recruiting_rating[0] = "1 Star"
+    elif "2star" in recruiting_rating[0]:
+        recruiting_rating[0] = "2 Star"
+    elif "3star" in recruiting_rating[0]:
+        recruiting_rating[0] = "3 Star"
+    elif "4star" in recruiting_rating[0]:
+        recruiting_rating[0] = "4 Star"
+    elif "5star" in recruiting_rating[0]:
+        recruiting_rating[0] = "5 Star"
+    elif "6star" in recruiting_rating[0]:
+        recruiting_rating[0] = "Blue Chip"
+    else:
+        recruiting_rating[0] = "????????"
 
+    driver.quit()
+
+    return([player_name, player_location, player_district, player_wtn, player_points, player_rank, recruiting_rating[0], recruiting_rating[1], recruiting_rating[2]])
+
+
+def scrape_draw_size(link, selected_age_group):
+    driver = setup_driver()
+    driver.get(link)
+
+    tournament_groups_final = []
+    
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "_H6_1iwqn_128")))
+    
+    tournament_age_groups = driver.find_elements(By.CLASS_NAME, "_H6_1iwqn_128")
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "_link_19t7t_285")))
+    
+    links = driver.find_elements(By.CLASS_NAME, "_link_19t7t_285")
+    
+    for age_group in tournament_age_groups:
+        tournament_groups_final.append(age_group.text)
+
+    tournament_link_final = links[tournament_groups_final.index(selected_age_group) - 1]
+    tournament_link_final = tournament_link_final.get_attribute("href")
+    driver.get(tournament_link_final)
+
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "_bodyXSmall_1iwqn_137")))
+    
+    tournament_draw_temp = driver.find_elements(By.CLASS_NAME, "_bodyXSmall_1iwqn_137")
+    try:
+        tournament_draw_size = int(tournament_draw_temp[1].text)
+    except:
+        tournament_draw_size = 100000
+        
+    sort_type = tournament_draw_temp[5].text
+    if "ranking" in sort_type.lower():
+        sort_type = 1
+    elif "wtn" in sort_type.lower():
+        sort_type = 2
+    elif "manual" in sort_type.lower():
+        sort_type = 0
+    elif ("n/a" == sort_type.lower()) or ("first" in sort_type.lower()):
+        print("1.Points\n2.WTN")
+        sort_type = str(input("Choose a selection type: "))
+        if sort_type == "1":
+            sort_type = 1
+        elif sort_type == "2":
+            sort_type = 2
+    
+    return([tournament_draw_size, sort_type])
+
+    
+def scrape_player(player_link):
+    try:
+        player_info = scrape_usta(player_link)
         return {
-            "Name": info[0],
-            "Location": info[1],
-            "District": info[2],
-            "WTN": info[3],
-            "Points": info[4],
-            "Ranking": info[5],
-            "Recruiting": recruiting_rating[0],
-            "Class": recruiting_rating[2],
-            "UTR": recruiting_rating[1]
+            "Name": player_info[0],
+            "Location": player_info[1],
+            "District": player_info[2],
+            "WTN": player_info[3],
+            "Points": player_info[4],
+            "Ranking": player_info[5],
+            "Recruiting": player_info[6],
+            "Class": player_info[8],
+            "UTR": player_info[7],
         }
     except Exception as e:
-        print(f"Error scraping player {player_link}: {e}")
         return None
 
-# ---
-## Tournament Data Scraping and PDF Generation
-
-# CHANGE 9: Make scrape_tournament_data an async function
-def scrape_tournament_data(tournament_url, age_group, sort):
-    start = datetime.now()
-    playwright, browser, context, page = setup_page()
-
-    try:
-        tournament_url = tournament_url.lower()
-        page.goto(tournament_url)
-
-        try:
-            name_element = page.wait_for_selector("//*[@id='tournaments']/div/div/div/div[1]/div/div[1]/h1", timeout=10000)
-            name = name_element.inner_text() if name_element else "Unknown Tournament"
-        except:
-            name = "Unknown Tournament"
-
-        draw_size_str = scrape_draw_size(tournament_url.replace("overview", "events"), age_group)
-        draw_size = 10000 if draw_size_str == "N/A" else int(draw_size_str)
-
-        page.goto(tournament_url.replace("overview", "players"))
-
-        # Initialize player_links as an empty list
-        player_links = []
-
-        # Find all players in the tournament
-        content = page.content()
-        soup = BeautifulSoup(content, 'lxml')
-        players = soup.find_all("td", class_="_alignLeft_1nqit_268")
-        time_now = datetime.now()
-
-        # Extract player links based on age group and gender
-        for i in range(0, len(players), 2):  # Iterate every 2nd element for name and age group
-            if (i + 1 < len(players) and
-                hasattr(players[i + 1], 'text') and
-                age_group in players[i + 1].text and
-                "Boys" in players[i + 1].text and
-                "Singles" in players[i + 1].text):
-
-                if hasattr(players[i], 'find'):
-                    link = players[i].find("a")
-                    if link and hasattr(link, 'get'):
-                        href = link.get('href')
-                        if href:
-                            player_links.append(href)
-
-        # Check if any player links were found
-        if not player_links:
-            print("No player links found. Exiting.")
-            return  # Exit the function if no players are found
-
-        print("Found",len(player_links),"players. Starting information search...")
-
-        # Use asyncio.gather for parallel asynchronous scraping
-        # You would typically use asyncio.gather for async functions, not ThreadPoolExecutor directly.
-        # Since scrape_player is now async, we'll use asyncio.gather.
-        player_data = asyncio.gather(*(scrape_player(link, age_group) for link in player_links))
-
-
-        # Filter out None results (in case of scraping errors)
-        player_data = [data for data in player_data if data is not None]
-
-        # Initialize player_data_sorted with a default value
-        player_data_sorted = player_data
-
-        sort_type = ""
-
-        # Fix sorting logic for player data
-        if sort == 1:  # Sort by Points
+def sort_players(player_data, tournament_level, sort):
+    if "Level 7" in tournament_level:
+        if sort == 1:
             sort_type = "points"
-            player_data_sorted = sorted(
-                player_data,
-                key=lambda x: float(x["Points"].replace(",", "")) if x["Points"].replace(",", "").replace(".", "").isdigit() else 0,
-                reverse=True,
-            )
-        elif sort == 2:  # Sort by WTN
+            player_data = sorted(player_data,key=lambda x: float(x["Points"].replace(",", "")) if x["Points"].replace(",", "").isdigit() else 0)
+        elif sort == 2:
             sort_type = "wtn"
-            def parse_wtn(wtn_str):
-                try:
-                    return float(wtn_str)  # Convert WTN to a float directly
-                except ValueError:
-                    return 40.0  # Default WTN if conversion fails
-            player_data_sorted = sorted(player_data, key=lambda x: parse_wtn(x["WTN"]))
+            player_data = sorted(player_data, key=lambda x: parse_wtn(x["WTN"]), reverse=True)
+    elif "Level 6" in tournament_level:
+        if sort == 1:
+            sort_type = "points"
+            player_data = sorted(player_data,key=lambda x: float(x["Points"].replace(",", "")) if x["Points"].replace(",", "").isdigit() else 0, reverse=True)
+        elif sort == 2:
+            sort_type = "wtn"
+            player_data = sorted(player_data, key=lambda x: parse_wtn(x["WTN"]))
+    else:
+        sort_type = "mixed"
+        player_data = sorted(player_data,key=lambda x: float(x["Points"].replace(",", "")) if x["Points"].replace(",", "").isdigit() else 0, reverse=True)    
 
-        print("Completed. Analyzing data...")
+    return [player_data, sort_type] 
 
-        # Initialize data for Plotly table
-        names, locations, districts, seeds, wtns, points, rankings, recruiting, year, utr = [], [], [], [], [], [], [], [], [], []
-        row_colors = []  # List to hold row colors
 
-        counts = 0
+def scrape_tournament_data(tournament_url, age_group, draw_size, sort, tournament_level):
+    driver = setup_driver()
+    tournament_url = tournament_url.lower()
+    driver.get(tournament_url)
+    tournament_name = driver.find_element(By.XPATH, "//*[@id='tournaments']/div/div/div/div[1]/div/div[1]/h1").text
 
-        for player in player_data_sorted:
-            if player and isinstance(player, dict):  # Ensure player is not None and is a dictionary
+    driver.get(tournament_url.replace("overview", "players"))
+    player_links = []
 
-                # Format points if they are numeric
-                try:
-                    player["Points"] = f'{int(player["Points"]):,}'  # Format as integer with commas
-                except (ValueError, TypeError, KeyError):
-                    player["Points"] = "0"
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "_alignLeft_1nqit_268")))
+    players_list = driver.find_elements(By.CLASS_NAME, "_alignLeft_1nqit_268")
 
-                # Format ranking if it is numeric
-                try:
-                    player["Ranking"] = f'{int(player["Ranking"]):,}'  # Format as integer with commas
-                except (ValueError, TypeError, KeyError):
-                    player["Ranking"] = "20,000"
+    for player_row in players_list:
+        if age_group in player_row.text:
+            link = players_list[players_list.index(player_row) - 1].find_element(By.TAG_NAME, "a")
+            link = link.get_attribute('href')
+            player_links.append(link)
 
-                # Append data to lists
-                names.append(player.get("Name", "Unknown"))
-                locations.append(player.get("Location", "Unknown"))
-                districts.append(player.get("District", "Unknown"))
-                wtns.append(player.get("WTN", "N/A"))
-                points.append(player["Points"])
-                rankings.append(player["Ranking"])
-                recruiting.append(player["Recruiting"])
-                year.append(player["Class"])
-                utr.append(player["UTR"])
 
-                # Set row color based on draw size
-                if int(counts) > int(draw_size) - 1:
-                    row_colors.append('lightcoral')
-                else:
-                    row_colors.append('white')
+    if not player_links:
+        print("No player links found. Exiting.")
+        return
 
-                counts += 1
+    print("Found",len(player_links),"players. Starting information search...")
+    with ThreadPoolExecutor(max_workers=5) as executor: player_data = list(executor.map(scrape_player, player_links))
 
-        seeds2 = []
-        seeds = []
-        n = 0
-        x = min(int(draw_size),len(player_links))
-        while pow(2,n) <= x: n += 1
-        n = pow(2,n - 2)
-        for i in wtns[:x]: seeds2.append(i)
-        seeds2.sort()
-        seeds2 = seeds2[0:n]
-        for i in wtns[:x]:
-            if i in seeds2: seeds.append(seeds2.index(i) + 1)
-            else: seeds.append("-")
-        # Pad seeds to match total players
-        while len(seeds) < len(names): seeds.append("-")
+    player_data = [data for data in player_data if data is not None]
+    
+    player_data = sort_players(player_data, tournament_level, sort)
+    sort_type = player_data[1]
+    player_data = player_data[0]
+      
+    print("Completed. Analyzing data...")
+    driver.quit()
 
-        today_str = datetime.today().strftime("%Y-%m-%d")
-        safe_name = "".join(c if c.isalnum() or c in " -" else "-" for c in name)  # Sanitize filename
+    player_names = []
+    player_locations = []
+    player_districts = []
+    player_seeds = []
+    player_wtns = []
+    player_points = []
+    player_rankings = []
+    player_recruiting = []
+    player_year = []
+    player_utr = []
+    row_colors = []
+    counts = 0
+    
+    for player in player_data:
+        if player and isinstance(player, dict):
 
-        filename = f"{safe_name}_{today_str}_{sort_type}.pdf"
-        pdf_dir = "C:/Users/mohit/Downloads"
-        os.makedirs(pdf_dir, exist_ok=True)
-        pdf_path = os.path.join(pdf_dir, filename)
-
-        # Build PDF report
-        doc = SimpleDocTemplate(pdf_path, pagesize=landscape(letter))
-        elements = []
-        styles = getSampleStyleSheet()
-
-        # Add tournament name as title
-        elements.append(Paragraph(f"<b>{name}</b>", styles['Title']))
-        elements.append(Spacer(1, 12))
-
-        # Construct table data
-        table_data = [
-            ["No", "Name", "Location", "District", "Seed", "WTN", "Points", "Ranking", "Recruiting", "Grade", "UTR"]
-        ]
-        for i in range(len(names)):
-            row = [
-                str(i + 1),
-                names[i],
-                locations[i],
-                districts[i],
-                str(seeds[i]),
-                wtns[i],
-                points[i],
-                rankings[i],
-                recruiting[i],
-                year[i],
-                utr[i]
-            ]
-            table_data.append(row)
-
-        # Create the table
-        table = Table(table_data, repeatRows=1)
-        table_style = TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.green),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ])
-
-        # Apply red background to rows outside draw size
-        for idx in range(1, len(table_data)):
-            if idx > int(draw_size):
-                table_style.add('BACKGROUND', (0, idx), (-1, idx), colors.lightcoral)
-        table.setStyle(table_style)
-
-        # Step 1: Count UTRs using a dictionary
-        utr_counter = defaultdict(int)
-        utr_placeholders = set()
-
-        for u in utr:
-            u = u.strip()
-            if u == "?":
-                key = "? UTR"
-            elif re.match(r"^\d+\.xx$", u):
-                key = u.split('.')[0] + ".0"
-                utr_placeholders.add(key)  # Remember this was a ".xx"
-            else:
-                key = u
-            utr_counter[key] += 1
-
-        # Sorting numerically
-        def sort_key(k):
             try:
-                return float(k)
-            except ValueError:
-                return float('inf')
+                player["Points"] = f'{int(player["Points"]):,}'
+            except (ValueError, TypeError, KeyError):
+                player["Points"] = "0"
 
-        utrs_sorted = sorted(utr_counter.items(), key=lambda x: sort_key(x[0]))
+            try:
+                player["Ranking"] = f'{int(player["Ranking"]):,}'
+            except (ValueError, TypeError, KeyError):
+                player["Ranking"] = "20,000"
 
-        # Build the summary
-        utr_summary_lines = []
-        total = len(utr)
-        for utr_val, count in utrs_sorted:
-            display_val = f"{utr_val.split('.')[0]}.xx" if utr_val in utr_placeholders else utr_val
-            pct = round(100 * count / total, 2)
-            if count == 1:
-                utr_summary_lines.append(
-                    f" - There is <b>{count}</b> UTR rated <b>{display_val}</b> in this tournament (<b>{pct}%</b>)."
-                )
+            player_names.append(player.get("Name", "Unknown"))
+            player_locations.append(player.get("Location", "Unknown"))
+            player_districts.append(player.get("District", "Unknown"))
+            player_wtns.append(player.get("WTN", "N/A"))
+            player_points.append(player["Points"])
+            player_rankings.append(player["Ranking"])
+            player_recruiting.append(player["Recruiting"])
+            player_year.append(player["Class"])
+            player_utr.append(player["UTR"])
+            if int(counts) > int(draw_size) - 1:
+                row_colors.append('lightcoral')
             else:
-                utr_summary_lines.append(
-                    f" - There are <b>{count}</b> UTRs rated <b>{display_val}</b> in this tournament (<b>{pct}%</b>)."
-                )
+                row_colors.append('white')
+            counts += 1
+            
+    seeds_temp = []
+    seeds_final = []
+    num_seeds = 0
+    total_players = min(int(draw_size),len(player_links))
 
-        utr_summary_text = "<br/>".join(utr_summary_lines)
+    while pow(2,num_seeds) <= total_players:
+        num_seeds += 1
+    num_seeds = pow(2,num_seeds - 2)
 
-        # Create and add UTR summary BEFORE table
-        elements.append(Spacer(1, 12))
-        elements.append(Paragraph(utr_summary_text, styles['Normal']))
-        elements.append(Spacer(1, 12))
-        elements.append(HRFlowable(width="100%", thickness=1, lineCap='round', color=colors.grey, spaceBefore=12, spaceAfter=12, dash=3))
+    for i in player_wtns[:total_players]:
+        seeds_temp.append(i)
 
-        # THEN append the table
-        elements.append(table)
+    seeds_temp.sort()
+    seeds_temp = seeds_temp[0:num_seeds]
+    
+    for i in player_wtns[:total_players]:
+        if i in seeds_temp:
+            seeds_final.append(seeds_temp.index(i) + 1)
+        else:
+            seeds_final.append("-")
+            
+    while len(seeds_final) < len(player_names):
+        seeds_final.append("-")
+    
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    safe_name = "".join(c if c.isalnum() or c in " -" else "-" for c in tournament_name)
+    filename = f"{safe_name}_{today_str}_{sort_type}.pdf"
+    pdf_dir = os.path.join(os.getcwd(), "static")
+    os.makedirs(pdf_dir, exist_ok=True)
+    pdf_path = os.path.join(pdf_dir, filename)
+    doc = SimpleDocTemplate(pdf_path, pagesize=landscape(letter))
 
-        # Build the PDF
-        doc.build(elements)
-        print(f"PDF saved to: {pdf_path}")
+    elements = []
+    styles = getSampleStyleSheet()
+    elements.append(Paragraph(f"<b>{tournament_name}</b>", styles['Title']))
+    elements.append(Spacer(1, 12))
+    table_data = [["No", "Name", "Location", "District", "Seed", "WTN", "Points", "Ranking", "Recruiting", "Grade", "UTR"]]
+    
+    for i in range(len(player_names)):
+        row = [
+            str(i + 1),
+            player_names[i],
+            player_locations[i],
+            player_districts[i],
+            str(seeds_final[i]),
+            player_wtns[i],
+            player_points[i],
+            player_rankings[i],
+            player_recruiting[i],
+            player_year[i],
+            player_utr[i]
+        ]
+        table_data.append(row)
+        
+    table = Table(table_data, repeatRows=1)
+    table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.green),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ])
+    
+    for idx in range(1, len(table_data)):
+        if idx > int(draw_size):
+            table_style.add('BACKGROUND', (0, idx), (-1, idx), colors.lightcoral)
 
-        # Open the PDF in the system's default viewer
-        try:
-            if platform.system() == 'Windows':
-                subprocess.call(('start', pdf_path), shell=True)
-            elif platform.system() == 'Darwin':
-                subprocess.call(['open', pdf_path])
-            else:
-                subprocess.call(['xdg-open', pdf_path])
-        except Exception as e:
-            print("Could not open PDF automatically:", e)
+    table.setStyle(table_style)
+    utr_counter = defaultdict(int)
+    utr_placeholders = set()
+    
+    for each_utr in player_utr:
+        each_utr = each_utr.strip()
+        
+        if each_utr == "?":
+            key = "? UTR"
+        elif re.match(r"^\d+\.xx$", each_utr):
+            key = each_utr.split('.')[0] + ".0"
+            utr_placeholders.add(key)
+        else:
+            key = each_utr
+            
+        utr_counter[key] += 1
+        
+    utrs_sorted = sorted(utr_counter.items(), key=lambda x: sort_key(x[0]))
+    utr_summary_lines = []
+    total = len(player_utr)
+    
+    for utr_val, count in utrs_sorted:
+        display_val = f"{utr_val.split('.')[0]}.xx" if utr_val in utr_placeholders else utr_val
+        pct = round(100 * count / total, 2)
 
-    finally:
-        close_browser(playwright, browser, context)
-
-# ---
-## Main Execution Block
-
-# CHANGE 10: Run the main function using asyncio.run
-def main():
-    tournament_link = input("Enter the tournament link: ")
-    options = age_groups(tournament_link) # Await the async function call
-    for i in options:
-        print(str(options.index(i) + 1) + ". " + i)
-    age_group = options[int(input("Enter the number for your selected age group: ")) - 1]
-    for i in ["1. Points", "2. WTN"]:
-        print(i)
-    sort = int(input("Choose a sort: "))
-    scrape_tournament_data(tournament_link.lower(), age_group, sort) # Await the async function call
-
-if __name__ == "__main__":
-    main()
+        if count == 1:
+            utr_summary_text = f" - There is <b>{count}</b> UTR rated <b>{display_val}</b> in this tournament (<b>{pct}%</b>)."
+            utr_summary_lines.append(utr_summary_text)
+        else:
+            utr_summary_text = f" - There are <b>{count}</b> UTRs rated <b>{display_val}</b> in this tournament (<b>{pct}%</b>)."
+            utr_summary_lines.append(utr_summary_text)
+            
+    utr_summary_text = "<br/>".join(utr_summary_lines)
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(utr_summary_text, styles['Normal']))
+    elements.append(Spacer(1, 12))
+    elements.append(HRFlowable(width="100%", thickness=1, lineCap='round', color=colors.grey, spaceBefore=12, spaceAfter=12, dash=3))
+    elements.append(table)
+    doc.build(elements)
+    print(f"PDF saved to: {pdf_path}")
+        
+def run_tournament_analysis(tournament_url, selected_age_index):
+    age_options = age_groups_level(tournament_url)
+    if not age_options or len(age_options[2]) < int(selected_age_index):
+        raise ValueError("Invalid age group selection.")
+    
+    age_group = age_options[2][int(selected_age_index) - 1]
+    draw_info = scrape_draw_size(tournament_url.replace("overview", "events"), age_group)
+    scrape_tournament_data(
+        tournament_url.lower(),
+        age_group,
+        draw_info[0],
+        draw_info[1],
+        age_options[0]
+    )
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    tournament_name = "".join(c if c.isalnum() or c in " -" else "-" for c in tournament_url.split("/")[-1])
+    return f"{tournament_name}_{today_str}_{draw_info[1]}.pdf"
+    
