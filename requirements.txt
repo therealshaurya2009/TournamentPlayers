@@ -1,5 +1,5 @@
 flask
-gunicorn
-playwright
+selenium
+plotly
 reportlab
-tk  # optional: remove if deploying without GUI
+webdriver-manager
