@@ -41,7 +41,7 @@ def setup_driver():
     driver_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     driver_options.add_experimental_option('useAutomationExtension', False)
     service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=driver_options)
+    driver = webdriver.Chrome(executable_path="/opt/render/project/.render/chrome/opt/google/chrome/google-chrome/chromedriver", service=service, options=driver_options)
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
