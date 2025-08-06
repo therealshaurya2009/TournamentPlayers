@@ -1,27 +1,56 @@
+# Use a lightweight Python image
 FROM python:3.11-slim
 
-# Install dependencies for Playwright
+# Install dependencies for Chrome and ChromeDriver
 RUN apt-get update && apt-get install -y \
-    wget curl unzip gnupg ca-certificates \
-    libglib2.0-0 libnss3 libgconf-2-4 libfontconfig1 \
-    libx11-dev libxcomposite1 libxdamage1 libxrandr2 \
-    libasound2 libatk1.0-0 libgtk-3-0 libxss1 && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    wget \
+    unzip \
+    gnupg2 \
+    curl \
+    fonts-liberation \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxrandr2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libxss1 \
+    libxext6 \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set work directory
+# Add Google Chrome repo and install Chrome stable
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && apt-get install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install ChromeDriver
+RUN CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
+    wget -N https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip -P /tmp && \
+    unzip /tmp/chromedriver_linux64.zip -d /usr/local/bin/ && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm /tmp/chromedriver_linux64.zip
+
+# Set display port (needed for Chrome)
+ENV DISPLAY=:99
+
+# Set workdir
 WORKDIR /app
 
-# Copy files
-COPY . /app
-
-# Install Python dependencies
+# Copy requirements and install
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and its browser binaries
-RUN playwright install --with-deps
+# Copy app source code
+COPY . /app/
 
-# Expose port for Flask app
+# Expose port your Flask app listens on (change if needed)
 EXPOSE 10000
 
-# Start Flask app (replace with your file if different)
+# Start the app with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
