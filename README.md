@@ -32,7 +32,7 @@ If you are running the Playwright-backed versions (V7 through V11) for the first
 playwright install chromium
 ```
 
-How to Run
+### How to Run
 To boot up the modern interactive web application interface, navigate to your root project directory and execute:
 
 ```Bash
@@ -40,7 +40,7 @@ streamlit run TournamentPlayersV10.py
 (Replace TournamentPlayersV10.py with whichever specific version file you want to test).
 ```
 
-📈 Version Evolution & Project History
+## 📈 Version Evolution & Project History
 This repository documents an end-to-end software engineering journey across 11 distinct iterations, showcasing structural migrations from simple sequential scripts to highly optimized, multi-threaded, and eventually completely asynchronous reactive web applications:
 
 ```V1``` — Proof of Concept: A foundational command-line script leveraging sequential ```Selenium (Edge)``` loops and ```BeautifulSoup4```. It targets player search nodes, parses profile markup, handles basic UTR/WTN strings, and pushes interactive datatables straight to the local browser using ```Plotly```.
@@ -59,7 +59,7 @@ This repository documents an end-to-end software engineering journey across 11 d
 
 ```V11``` — Production Finalization: Refined network resilience and exception-handling frameworks, stabilizing continuous data streams across deep draw pages without triggering USTA rate-limiting blocks.
 
-📊 Core Features & Extracted Statistics
+## 📊 Core Features & Extracted Statistics
 Automated Draw Parsing: Resolves raw tournament event pages, automatically detecting explicit age divisions, ranking classifications, and dynamic competitor draw scales.
 
 Metric Fetching & Aggregation: Safely extracts protected values (WTN data vectors, exact UTR metrics, national points balances, and sectional tracking IDs).
@@ -68,10 +68,5 @@ Statistical Thresholding: Computes the concentration ratios of players falling w
 
 Automated PDF Compiler: Outputs publication-grade, color-coded PDF books featuring clean header formatting, horizontal line separators, and calculated tournament health summaries.
 
-📝 License
+## 📝 License
 Distributed under the MIT License. See LICENSE for more information.
-
-
-### Pro-Tips for Final Polish on GitHub:
-1. **Add Images/Screenshots:** Since your later versions build a clean Streamlit interface and compile beautiful `ReportLab` PDFs, take screenshots of them. You can drag and drop those image files directly into the GitHub README markdown text editor. It is highly recommended to place them right under the **Core Features** section!
-2. **Relative File Structuring:** If you decide later to clean up your root directory by placing these files into a subdirectory (e.g., `src/` or `versions/`), remember to update the **How to Run** snippet (`streamlit run versions/TournamentPlayersV10.py`) so users don't get a file-not-found error.
