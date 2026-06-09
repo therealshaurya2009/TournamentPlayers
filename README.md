@@ -23,12 +23,15 @@ Depending on which historic version you run, the project leverages different tie
 Make sure you have Python 3.9 or higher installed. To run the latest and most optimized versions of the codebase (`V9`, `V10`, or `V11`), install the dependencies via pip:
 
 ```bash
-pip install streamlit playwright beautifulsoup4 reportlab requests psutil nest_asyncio
+pip install streamlit playwright beautifulsoup4 reportlab requests psutil nest_asyncio\
+```
 
 If you are running the Playwright-backed versions (V7 through V11) for the first time, ensure the required browser binaries are initialized on your machine:
 
-Bash
+```bash
 playwright install chromium
+```
+
 How to Run
 To boot up the modern interactive web application interface, navigate to your root project directory and execute:
 
