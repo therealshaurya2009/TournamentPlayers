@@ -35,28 +35,29 @@ playwright install chromium
 How to Run
 To boot up the modern interactive web application interface, navigate to your root project directory and execute:
 
-Bash
+```Bash
 streamlit run TournamentPlayersV10.py
 (Replace TournamentPlayersV10.py with whichever specific version file you want to test).
+```
 
 📈 Version Evolution & Project History
 This repository documents an end-to-end software engineering journey across 11 distinct iterations, showcasing structural migrations from simple sequential scripts to highly optimized, multi-threaded, and eventually completely asynchronous reactive web applications:
 
-V1 — Proof of Concept: A foundational command-line script leveraging sequential Selenium (Edge) loops and BeautifulSoup4. It targets player search nodes, parses profile markup, handles basic UTR/WTN strings, and pushes interactive datatables straight to the local browser using Plotly.
+```V1``` — Proof of Concept: A foundational command-line script leveraging sequential ```Selenium (Edge)``` loops and ```BeautifulSoup4```. It targets player search nodes, parses profile markup, handles basic UTR/WTN strings, and pushes interactive datatables straight to the local browser using ```Plotly```.
 
-V2 & V3 — Concurrency & Desktop GUI: Dropped raw terminal inputs for a formal Tkinter desktop window GUI. To bypass slow sequential profile fetching, this era integrated a ThreadPoolExecutor to handle concurrent scraper worker threads. V3 refined sync timeouts with WebDriverWait explicit conditions.
+```V2 & V3``` — Concurrency & Desktop GUI: Dropped raw terminal inputs for a formal ```Tkinter``` desktop window GUI. To bypass slow sequential profile fetching, this era integrated a ```ThreadPoolExecutor``` to handle concurrent scraper worker threads. V3 refined sync timeouts with ```WebDriverWait``` explicit conditions.
 
-V4 — Extended Search Capabilities: Introduced a dynamic cross-referencing search tool (find_player) that leverages USTA’s global portal to parse individual player URLs cleanly by inputting raw string text names.
+```V4``` — Extended Search Capabilities: Introduced a dynamic cross-referencing search tool (```find_player```) that leverages USTA’s global portal to parse individual player URLs cleanly by inputting raw string text names.
 
-V5 & V6 — Corporate PDF Reporting: Completely replaced raw browser visuals with automated document assembly. Integrated ReportLab to structure tournament rosters into landscape-oriented tables, compute percentage distributions, and automatically open local PDFs via system subprocesses (os.startfile/xdg-open). V6 modularized the setup with clean anti-detection User-Agents and multi-browser support.
+```V5 & V6``` — Corporate PDF Reporting: Completely replaced raw browser visuals with automated document assembly. Integrated ```ReportLab``` to structure tournament rosters into landscape-oriented tables, compute percentage distributions, and automatically open local PDFs via system subprocesses (```os.startfile/xdg-open```). ```V6``` modularized the setup with clean anti-detection User-Agents and multi-browser support.
 
-V7 — High-Speed Async & Playwright Migration: Completely replaced Selenium with Playwright (Async API) to dramatically minimize script runtimes. Included automatic DOM scrolling injectors and configured psutil pipeline handlers to cleanly kill orphaned background browser processes upon termination.
+```V7``` — High-Speed Async & Playwright Migration: Completely replaced Selenium with ```Playwright (Async API)``` to dramatically minimize script runtimes. Included automatic DOM scrolling injectors and configured ```psutil``` pipeline handlers to cleanly kill orphaned background browser processes upon termination.
 
-V8 — Web UI Paradigm Shift: Phased out Tkinter to migrate the presentation layer entirely to Streamlit, converting the script into an executive web application layout.
+```V8``` — Web UI Paradigm Shift: Phased out Tkinter to migrate the presentation layer entirely to ```Streamlit```, converting the script into an executive web application layout.
 
-V9 & V10 — Async Lifecycle Architecture: Solved intricate async loop collisions inside Streamlit by wrapping runtime environments with nest_asyncio. Optimized state retention (st.session_state) so generated data vectors and file buffers persist correctly without breaking the UI during script re-runs. V10 scaled the anti-bot wait thresholds to 10,000ms to guarantee complete stability over massive draw sheets.
+```V9 & V10``` — Async Lifecycle Architecture: Solved intricate async loop collisions inside Streamlit by wrapping runtime environments with ```nest_asyncio```. Optimized state retention (```st.session_state```) so generated data vectors and file buffers persist correctly without breaking the UI during script re-runs. ```V10``` scaled the anti-bot ```wait``` thresholds to 10,000ms to guarantee complete stability over massive draw sheets.
 
-V11 — Production Finalization: Refined network resilience and exception-handling frameworks, stabilizing continuous data streams across deep draw pages without triggering USTA rate-limiting blocks.
+```V11``` — Production Finalization: Refined network resilience and exception-handling frameworks, stabilizing continuous data streams across deep draw pages without triggering USTA rate-limiting blocks.
 
 📊 Core Features & Extracted Statistics
 Automated Draw Parsing: Resolves raw tournament event pages, automatically detecting explicit age divisions, ranking classifications, and dynamic competitor draw scales.
