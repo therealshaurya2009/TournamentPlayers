@@ -1,6 +1,8 @@
 import time
 from bs4 import BeautifulSoup
-from selenium.webdriver import Edge
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 import plotly.graph_objects as go
 import requests
@@ -10,9 +12,19 @@ import json
 
 # Function to setup Edge WebDriver
 def setup_driver(minimize):
-    driver = Edge()
-    if minimize:
-        driver.minimize_window()  # Minimize the window instead of using headless mode
+    # Automatically downloads and links the correct ChromeDriver for your system
+    service = ChromeService(ChromeDriverManager().install())
+    
+    # Optional: If you want to configure Chrome options (like headless mode)
+    options = webdriver.ChromeOptions()
+    # options.add_argument("--headless=new") # Uncomment if you want it to run invisibly
+    
+    # Initialize the Chrome Browser instance
+    driver = webdriver.Chrome(service=service, options=options)
+    
+    if minimize: 
+        driver.minimize_window()
+        
     return driver
 
 def scrape_usta(player_link):
