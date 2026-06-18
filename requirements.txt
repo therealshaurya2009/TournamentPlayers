@@ -1,0 +1,7 @@
+streamlit
+playwright
+beautifulsoup4
+reportlab
+requests
+psutil
+nest_asyncio
