@@ -69,7 +69,7 @@ Add screenshots here.
 
 ## Results
 
-![Results](README_assets/results.png)
+![Results](assets/TournamentPlayersV1 - Sample Result.png)
 
 ---
 
