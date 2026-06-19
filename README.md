@@ -62,14 +62,13 @@ Designed for high-volume tournament analysis.
 Add screenshots here.
 
 ## Dashboard
-
-![Dashboard](README_assets/dashboard.png)
+TournamentPlayersV1 - Sample Dashboard
+![Dashboard](assets/TournamentPlayersV1%20-%20Sample%20Dashboard.png)
 
 ---
 
 ## Results
 TournamentPlayersV1 - Sample Result
-
 ![Results](assets/TournamentPlayersV1%20-%20Sample%20Result.png)
 
 ---
