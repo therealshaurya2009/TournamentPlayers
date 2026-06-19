@@ -64,6 +64,8 @@ Add screenshots here.
 ## Dashboard
 TournamentPlayersV1 - Sample Dashboard
 ![Dashboard](assets/TournamentPlayersV1%20-%20Sample%20Dashboard.png)
+TournamentPlayersV2 - Sample Dashboard
+![Dashboard](assets/TournamentPlayersV2%20-%20Sample%20Dashboard.png)
 
 ---
 
