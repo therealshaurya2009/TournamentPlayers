@@ -176,9 +176,11 @@ TournamentPlayers/
 │
 ├── README.md
 ├── requirements.txt
-├── README_assets/
-│
-└── output/
+├── assets/
+|   ├── TournamentPlayersV1 - Sample Dashboard.py
+|   ├── TournamentPlayersV1 - Sample Result.py
+│   ├── ...
+
 ```
 
 ---
