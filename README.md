@@ -71,10 +71,13 @@ TournamentPlayersV2 - Sample Dashboard
 TournamentPlayersV3 - Sample Dashboard
 ![Dashboard](assets/TournamentPlayersV3%20-%20Sample%20Dashboard.png)
 
+TournamentPlayersV4 - Sample Dashboard
+![Dashboard](assets/TournamentPlayersV4%20-%20Sample%20Dashboard.png)
+
 ---
 
 ## Results
-TournamentPlayersV1 - Sample Result
+TournamentPlayersV1 to TournamentPlayersV3- Sample Result
 ![Results](assets/TournamentPlayersV1%20-%20Sample%20Result.png)
 
 ---
