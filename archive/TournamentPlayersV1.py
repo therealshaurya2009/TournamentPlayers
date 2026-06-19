@@ -172,7 +172,7 @@ def scrape_tournament_data(tournament_url, age_group, draw_size, sort):
         
         # Set reference UTR for comparison (Shaurya Kandhari)
         if player['Name'] == "Shaurya Kandhari":
-            main_utr = float(str(utr).replace("xx","50"))
+            main_utr = float(utr.replace("xx","50"))
         
         # Add player data to lists for Plotly table
 
