@@ -73,12 +73,6 @@ TournamentPlayersV1 - Sample Result
 
 ---
 
-## Generated Report
-
-![Report](README_assets/report.png)
-
----
-
 # Installation
 
 ## Clone repository
