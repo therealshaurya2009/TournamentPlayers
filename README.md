@@ -69,7 +69,7 @@ Add screenshots here.
 
 ## Results
 
-![Results](assets/TournamentPlayersV1 - Sample Result.png)
+![Results](assets/TournamentPlayersV1%20-%20Sample%20Result.png)
 
 ---
 
